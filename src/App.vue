@@ -96,6 +96,10 @@ const stateLabel = computed(() => {
   <v-layout full-height>
     <v-app-bar color="primary">
       <v-app-bar-title>Telegram Update Visualizer</v-app-bar-title>
+
+      <template #append>
+        <v-btn href="https://github.com/roziscoding/telegram-updates-viewer" icon="mdi-github"></v-btn>
+      </template>
     </v-app-bar>
 
     <v-main>
@@ -137,7 +141,7 @@ const stateLabel = computed(() => {
                     style="max-height: calc(100vh - 7%);">
                     <v-divider />
                     <v-list-item
-                      v-for="                                 update                                  in updatesList"
+                      v-for="                                    update                                     in updatesList"
                       :value="update.update_id">
                       <v-list-item-title>
                         {{ update.type }}
