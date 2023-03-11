@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@grammyjs/files": "^1.0.4",
     "grammy": "^1.14.1",
     "monaco-editor-vue3": "^0.1.6",
     "shiki": "^0.14.1",

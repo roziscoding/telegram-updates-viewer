@@ -4,15 +4,28 @@ import { Bot } from "grammy/web";
 import MonacoEditor from "monaco-editor-vue3";
 import { computed, ref, watch } from "vue";
 
+type DecoratedUpdate = Update & {
+  type: string;
+  timestamp: Date;
+  hasDownload: boolean;
+  url?: string;
+  fileName?: string;
+};
+
 const token = ref(localStorage.getItem("token") || "");
 const state = ref<"idle" | "initializing" | "listening" | "stopping" | "stopped" | "error">("idle");
 const error = ref<Error>();
 const bot = ref<Bot>();
 
-const updatesMap = new Map<number, Update>();
-const updatesList = ref<Array<Update & { type: string; timestamp: Date }>>([]);
+const updatesMap = new Map<number, DecoratedUpdate>();
+const updatesList = ref<Array<DecoratedUpdate>>([]);
 const selectedUpdateId = ref<number[]>([0]);
-const selectedUpdate = computed(() => JSON.stringify(updatesMap.get(selectedUpdateId.value[0]), null, 4));
+const selectedUpdate = computed(() => updatesMap.get(selectedUpdateId.value[0]));
+const undecoratedSelectedUpdate = computed(() =>
+  selectedUpdate.value
+    ? (({ type, timestamp, hasDownload, url, ...update }: DecoratedUpdate) => update)(selectedUpdate.value)
+    : undefined
+);
 
 watch(token, (value) => {
   localStorage.setItem("token", value);
@@ -28,13 +41,25 @@ const startListening = async () => {
   state.value = "initializing";
   try {
     bot.value = new Bot(token.value);
-    bot.value.use((ctx) => {
-      updatesMap.set(ctx.update.update_id, ctx.update);
-      updatesList.value.unshift({
+
+    bot.value.use(async (ctx) => {
+      const hasDownload = ctx.has(":file");
+      const url = hasDownload
+        ? await ctx.getFile().then((file) => ({
+            url: `https://api.telegram.org/file/bot${token.value}/${file.file_path}`,
+          }))
+        : {};
+
+      const decoratedUpdate = {
         ...ctx.update,
         type: Object.keys(ctx.update).filter((key) => key !== "update_id")[0],
         timestamp: new Date(),
-      });
+        hasDownload,
+        ...url,
+      };
+
+      updatesMap.set(ctx.update.update_id, decoratedUpdate);
+      updatesList.value.unshift(decoratedUpdate);
       if (!selectedUpdateId.value[0]) selectedUpdateId.value = [ctx.update.update_id];
     });
 
@@ -146,11 +171,25 @@ const formatDate = (date: Date) =>
             <v-list-item-title>
               {{ update.type }}
             </v-list-item-title>
-            <v-list-item-subtitle> {{ update.update_id }} {{ formatDate(update.timestamp) }} </v-list-item-subtitle>
+            <v-list-item-subtitle>{{ update.update_id }} {{ formatDate(update.timestamp) }} </v-list-item-subtitle>
           </v-list-item>
         </v-list>
       </v-navigation-drawer>
       <v-container fluid class="h-100 pa-0 ma-0">
+        <a
+          v-if="selectedUpdate && selectedUpdate.hasDownload && selectedUpdate.url"
+          download
+          :href="selectedUpdate.url"
+        >
+          <v-btn
+            color="secondary"
+            class="ma-6"
+            icon="mdi-download"
+            position="fixed"
+            location="bottom right"
+            style="z-index: 1"
+          ></v-btn>
+        </a>
         <v-row>
           <v-expand-x-transition>
             <v-col cols="12" v-if="stateIs('error')">
@@ -170,7 +209,7 @@ const formatDate = (date: Date) =>
             scrollBeyondLastLine: false,
           }"
           language="json"
-          :value="selectedUpdate"
+          :value="JSON.stringify(undecoratedSelectedUpdate, null, 4)"
           theme="vs-dark"
         />
       </v-container>
