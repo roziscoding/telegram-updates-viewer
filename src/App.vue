@@ -168,6 +168,9 @@ const formatDate = (date: Date) =>
         >
           <v-divider />
           <v-list-item v-for="update in updatesList" :value="update.update_id">
+            <template #append v-if="update.hasDownload">
+              <v-icon color="secondary" icon="mdi-download" size="x-small"></v-icon>
+            </template>
             <v-list-item-title>
               {{ update.type }}
             </v-list-item-title>
